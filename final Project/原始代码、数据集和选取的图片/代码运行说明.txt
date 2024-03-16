@@ -1,0 +1,1 @@
+task 1到task 4的代码，运行时需要读取该文件夹下的seeds_dataset.txt文件。task 5到task 7的代码（数据集），运行时需要读取该文件夹下的s1.jpg文件（图片）。

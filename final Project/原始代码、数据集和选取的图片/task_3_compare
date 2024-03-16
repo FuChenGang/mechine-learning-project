@@ -1,0 +1,206 @@
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib
+import random
+matplotlib.rc("font",family='Microsoft YaHei',weight="bold")
+from sklearn.preprocessing import StandardScaler
+
+
+class soft_k_means:
+    hard_cluster = None
+    k = None
+    cluster = None
+    def __init__(self,k):
+        self.k = k
+        return
+    
+
+    def hard_renew_cluster(self,data,assign):#更新簇的中心坐标
+        self.cluster = []
+        num = np.bincount(assign)
+        data =  data[assign.argsort()]
+        a = 0
+        for i in num:
+            self.cluster.append(np.mean(data[a:a+i,:],axis=0))
+            a += i
+        self.cluster = np.array(self.cluster)
+        return
+    
+    def hard_classify(self,data):
+        self.cluster = self.hard_cluster
+        iterate_number  = 0
+        print(f'self.cluster:{self.cluster}')
+        assignment1 = self.assign_old(data)
+        J_loss = self.loss_caculate(data)
+
+        print(f"loss{iterate_number}:{J_loss}\niterate_number{iterate_number}:assignment1{assignment1}")
+        self.hard_renew_cluster(data,assignment1)
+        
+        assignment2 = self.assign_old(data)
+        iterate_number  = 1
+        while (assignment1 != assignment2).any():
+            assignment1 = assignment2
+            self.hard_renew_cluster(data,assignment1)
+            assignment2 = self.assign_old(data)
+            J_loss = self.loss_caculate(data)
+            print(f"loss{iterate_number}:{J_loss}\niterate_number:{iterate_number}")
+            iterate_number+=1
+        print("iterate_number:",iterate_number)
+
+        return self.assign_old(data)
+
+
+    def classify(self,data):
+        self.random_cluster(data)
+        self.hard_cluster = self.cluster.copy()#保证hard与softkeans一开始的随机生成簇中心值一致
+        iterate_number  = 0
+        print(f'self.cluster:{self.cluster}')
+        assignment1 = self.assign(data)
+        J_loss = self.loss_caculate(data)
+
+        print(f"loss{iterate_number}:{J_loss}\niterate_number{iterate_number}:assignment1{assignment1}")
+        self.renew_cluster(data,assignment1)
+        
+        assignment2 = self.assign(data)
+        iterate_number  = 1
+        while (assignment1 != assignment2).any() and iterate_number < 1000:
+        
+
+            assignment1 = assignment2
+            self.renew_cluster(data,assignment1)
+            assignment2 = self.assign(data)
+            J_loss = self.loss_caculate(data)
+            print(f"loss{iterate_number}:{J_loss}\niterate_number:{iterate_number}")
+            iterate_number+=1
+        print("iterate_number:",iterate_number)
+
+        return self.assign_old(data)
+    
+    def renew_cluster(self,data,assign):#更新簇的中心坐标
+        self.cluster = []
+        
+        # data =  data[assign.argsort()]
+        a = 0
+        for i in assign:
+            r = np.sum(i)
+            i = np.array([i])
+            self.cluster.append(np.sum( data *i.T ,axis=0)/r)
+            
+        self.cluster = np.array(self.cluster)
+        
+        return
+
+    def assign(self,data):#将data的数据分配给每一个cluster
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        #print(f"\n\ndistance:{distance}")
+        minus_log = np.exp(-distance)
+        #print(f"\n\nexp:{distance}")
+        soft_weight = np.sum(minus_log,axis=0)
+        soft_weight = np.tile(soft_weight,(self.k,1))
+        weight = minus_log / soft_weight
+        #print(f"\n\nweight:{weight}\nminus_log:{minus_log}\nsoft_weight:{soft_weight}")
+        assignment = np.argmin(distance,axis=0)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return weight
+
+    def assign_old(self,data):#将data的数据分配给每一个cluster
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        assignment = np.argmin(distance,axis=0)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return assignment
+
+    def loss_caculate(self,data):
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return J_loss
+
+
+    def random_cluster(self,data):
+        a = list(data)
+        c = len(a)-1
+        b = 0
+        self.cluster = []
+        while b < self.k:
+            ran = random.randint(0,c)
+            self.cluster.append(a.pop(ran))
+            c -= 1
+            b += 1
+        self.cluster = np.array(self.cluster)
+        return
+
+
+
+
+
+
+# filepath = "C:\\Users\\86136\\Desktop\\杂物\\人工智能与机器学习\\作业\\作业8\\optdigits.tra"
+# filepath = "C:\\Users\\86136\\Desktop\\杂物\\人工智能与机器学习\\vscode\\final_project_copy\\seeds_dataset.txt"
+filepath = '.\\seeds_dataset.txt'
+
+
+data = np.loadtxt(filepath,dtype = float)
+data_complete = np.loadtxt(filepath,dtype = float)
+data = data_complete[:,0:-1]
+data = StandardScaler().fit_transform(data)#数据归一化
+
+kmeans = soft_k_means(3)
+# kmeans.random_cluster(data)
+# a = kmeans.assign(data)
+# kmeans.renew_cluster(data,a)
+output = kmeans.classify(data)
+output_hard = kmeans.hard_classify(data)
+a1 = np.max(np.bincount(output_hard[0:70]))
+a2 = np.max(np.bincount(output_hard[70:140]))
+a3 = np.max(np.bincount(output_hard[140:210]))
+print(f'kmeans accuracy:{(a1+a2+a3)/210}')
+a1 = np.max(np.bincount(output[0:70]))
+a2 = np.max(np.bincount(output[70:140]))
+a3 = np.max(np.bincount(output[140:210]))
+print(f'soft kmeans accuracy:{(a1+a2+a3)/210}')
+
+print(output)
+target = data_complete[:,-1]#用于验证
+
+x = np.arange(1,211)
+plt.scatter(x[0:70],target[0:70],s = 2)
+plt.scatter(x[70:140],target[70:140],s = 2)
+plt.scatter(x[140:210],target[140:210],s = 2)
+plt.title('训练集分类情况')
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.show()
+
+plt.subplot(2,1,1)
+plt.scatter(x[0:70],output_hard[0:70],s = 2)
+plt.scatter(x[70:140],output_hard[70:140],s = 2)
+plt.scatter(x[140:210],output_hard[140:210],s = 2)
+plt.title('hard(上图)与soft(下图)kmeans分类结果对比（初始簇中心相同）')
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.subplot(2,1,2)
+plt.scatter(x[0:70],output[0:70],s = 2)
+plt.scatter(x[70:140],output[70:140],s = 2)
+plt.scatter(x[140:210],output[140:210],s = 2)
+plt.xlabel('样本')
+plt.ylabel('类别')
+
+plt.show()

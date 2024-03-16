@@ -1,0 +1,282 @@
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib
+import random
+matplotlib.rc("font",family='Microsoft YaHei',weight="bold")
+from sklearn.preprocessing import StandardScaler
+
+
+class k_means:
+    
+    k = None
+    cluster = None
+    simple_cluster = None#记录簇的中心位置，未添加split and merge，用作对比
+    def __init__(self,k):
+        self.k = k
+        return
+    
+    def soft_classify(self,data):
+        self.random_cluster(data)
+        iterate_number  = 0
+        print(f'self.cluster:{self.cluster}')
+        assignment1 = self.soft_assign(data)
+        J_loss = self.loss_caculate(data)
+
+        print(f"loss{iterate_number}:{J_loss}\niterate_number{iterate_number}:assignment1{assignment1}")
+        self.soft_renew_cluster(data,assignment1)
+        
+        assignment2 = self.soft_assign(data)
+        iterate_number  = 1
+        while (assignment1 != assignment2).any() and iterate_number < 1000:
+        
+
+            assignment1 = assignment2
+            self.soft_renew_cluster(data,assignment1)
+            assignment2 = self.soft_assign(data)
+            J_loss = self.loss_caculate(data)
+            print(f"loss{iterate_number}:{J_loss}\niterate_number:{iterate_number}")
+            iterate_number+=1
+        print("iterate_number:",iterate_number)
+
+        return self.assign(data)
+    
+    def soft_renew_cluster(self,data,assign):#更新簇的中心坐标
+        self.cluster = []
+        
+        # data =  data[assign.argsort()]
+        a = 0
+        for i in assign:
+            r = np.sum(i)
+            i = np.array([i])
+            self.cluster.append(np.sum( data *i.T ,axis=0)/r)
+            
+
+
+        #添加non_local_split_and_merge_moves：
+        distance = self.distance(data)
+        #print(f'distance:{distance}')
+        assign = self.assign(data)
+        #print(f'assign:{assign}')
+        data_new =  data[assign.argsort()]#将原始数据按簇的分类重新排列
+        a = 0
+        distance1 = []
+        for i in assign:
+            distance1.append(distance[i][a])
+            #distance = distance[assign,:]
+            a += 1
+        distance = np.array(distance1)#各点的到最近簇中心的距离
+        #print(f'distance0:{distance}')
+        num = np.bincount(assign)#统计每一簇的样本点个数
+        distance =  distance[assign.argsort()]#将样本到簇的距离按簇的分类依次排列
+        a = 0 #用于取出每一簇的样本到
+        diameter_sort = 0 #簇的标记
+        diameter = np.zeros(len(num))#记录每一簇的直径
+        for i in num:
+            if i > 0:#避免max空集报错
+                diameter[diameter_sort] = np.max(distance[a:a+i])#记录每一簇的直径
+            diameter_sort += 1#记录簇的次序
+            a += i
+        print(f'各簇的直径记录：{diameter}')
+        if np.max(diameter) > 2 * np.min(diameter):#最大直径大于两倍最小直径时分割
+            max_num = np.argmax(diameter)
+            min_num = np.argmin(diameter)#记录最大与最小直径簇的索引
+            print(f'max_num{max_num}\nnum{num}')
+            self.cluster[min_num] = data_new[np.sum(num[0:max_num])]#将直径最小的簇中心更换为直径最大的簇的某一个点        
+        
+
+
+
+        self.cluster = np.array(self.cluster)
+        return
+    
+    def soft_assign(self,data):#将data的数据分配给每一个cluster
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        #print(f"\n\ndistance:{distance}")
+        minus_log = np.exp(-distance)
+        #print(f"\n\nexp:{distance}")
+        soft_weight = np.sum(minus_log,axis=0)
+        soft_weight = np.tile(soft_weight,(self.k,1))
+        weight = minus_log / soft_weight
+        #print(f"\n\nweight:{weight}\nminus_log:{minus_log}\nsoft_weight:{soft_weight}")
+        assignment = np.argmin(distance,axis=0)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return weight
+
+
+
+
+
+
+
+
+
+
+
+    def classify(self,data):
+        self.random_cluster(data)
+        self.simple_cluster = self.cluster.copy()
+        iterate_number  = 0
+        assignment1 = self.assign(data)
+        J_loss = self.loss_caculate(data)
+        print(f"loss{iterate_number}:{J_loss}\niterate_number{iterate_number}:assignment1{assignment1}")
+        self.renew_cluster(data,assignment1)
+        
+        assignment2 = self.assign(data)
+        iterate_number  = 1
+        while (assignment1 != assignment2).any() and iterate_number < 1000:#添加最大训练次数
+            assignment1 = assignment2
+            self.renew_cluster(data,assignment1)
+            assignment2 = self.assign(data)
+            J_loss = self.loss_caculate(data)
+            print(f"loss{iterate_number}:{J_loss}\niterate_number:{iterate_number}\nassignment{assignment1}")
+            iterate_number+=1
+        print("iterate_number:",iterate_number)
+        return assignment1
+    
+    def renew_cluster(self,data,assign):#更新簇的中心坐标
+        
+        num = np.bincount(assign)
+        data_new =  data[assign.argsort()]#将原始数据按簇的分类重新排列
+        a = 0
+        b = 0
+        for i in num:
+            if i > 0:#避免对空数组操作报错
+                self.cluster[b]  =  np.mean(data_new[a:a+i,:],axis=0)
+            a += i
+            b += 1
+
+
+        #添加non_local_split_and_merge_moves：
+        distance = self.distance(data)
+        #print(f'distance:{distance}')
+        assign = self.assign(data)
+        #print(f'assign:{assign}')
+        data_new =  data[assign.argsort()]#将原始数据按簇的分类重新排列
+        a = 0
+        distance1 = []
+        for i in assign:
+            distance1.append(distance[i][a])
+            #distance = distance[assign,:]
+            a += 1
+        distance = np.array(distance1)#各点的到最近簇中心的距离
+        #print(f'distance0:{distance}')
+        num = np.bincount(assign)#统计每一簇的样本点个数
+        distance =  distance[assign.argsort()]#将样本到簇的距离按簇的分类依次排列
+        a = 0 #用于取出每一簇的样本到
+        diameter_sort = 0 #簇的标记
+        diameter = np.zeros(len(num))#记录每一簇的直径
+        for i in num:
+            if i > 0:#避免max空集报错
+                diameter[diameter_sort] = np.max(distance[a:a+i])#记录每一簇的直径
+            diameter_sort += 1#记录簇的次序
+            a += i
+        print(f'各簇的直径记录：{diameter}')
+        if np.max(diameter) > 2 * np.min(diameter):#最大直径大于两倍最小直径
+            max_num = np.argmax(diameter)
+            min_num = np.argmin(diameter)#记录最大与最小直径簇的索引
+            print(f'max_num{max_num}\nnum{num}')
+            self.cluster[min_num] = data_new[np.sum(num[0:max_num])]#将直径最小的簇中心更换为直径最大的簇的某一个点
+        
+        self.cluster = np.array(self.cluster)
+        return
+    
+
+    
+    def distance(self,data):#计算簇与每个数据点的距离
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        
+        distance = np.array(distance)
+        return distance
+
+    def assign(self,data):#将data的数据分配给每一个cluster
+
+        distance = self.distance(data)
+        assignment = np.argmin(distance,axis=0)
+        # J_loss = np.sum(np.min(distance,axis=0))/length
+        return assignment
+
+    
+
+    def loss_caculate(self,data):
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return J_loss
+
+    def random_cluster(self,data):
+        a = list(data)
+        c = len(a)-1
+        b = 0
+        self.cluster = []
+        while b < self.k:
+            ran = random.randint(0,c)
+            self.cluster.append(a.pop(ran))
+            c -= 1
+            b += 1
+        self.cluster = np.array(self.cluster)
+        return
+
+
+
+
+
+
+filepath = '.\\seeds_dataset.txt'
+#filepath = "C:\\Users\\86136\\Desktop\\杂物\\人工智能与机器学习\\期末Project\\test\\新建 文本文档.txt"
+
+data_complete = np.loadtxt(filepath,dtype = float)
+data = data_complete[:,0:-1]
+data = StandardScaler().fit_transform(data)#数据归一化
+
+kmeans = k_means(10)
+
+
+output_soft = kmeans.soft_classify(data)
+output = kmeans.classify(data)
+
+
+
+
+target = data_complete[:,-1]#用于题目三验证
+x = np.arange(1,211)
+plt.scatter(x[0:70],target[0:70],s = 2)
+plt.scatter(x[70:140],target[70:140],s = 2)
+plt.scatter(x[140:210],target[140:210],s = 2)
+plt.title('训练集分类情况')
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.show()
+
+
+
+plt.subplot(2,1,1)
+plt.title('split merge的soft（上图）与hard（下图）kmeans分类结果对比（初始簇中心相同）\nsoftkmeans最大训练次数为1000，最大与最小簇直径超过2倍时split merge')
+plt.scatter(x[0:70],output_soft[0:70],s = 2)
+plt.scatter(x[70:140],output_soft[70:140],s = 2)
+plt.scatter(x[140:210],output_soft[140:210],s = 2)
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.subplot(2,1,2)
+plt.scatter(x[0:70],output[0:70],s = 2)
+plt.scatter(x[70:140],output[70:140],s = 2)
+plt.scatter(x[140:210],output[140:210],s = 2)
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.show()

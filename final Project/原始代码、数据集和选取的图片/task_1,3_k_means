@@ -1,0 +1,130 @@
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib
+import random
+matplotlib.rc("font",family='Microsoft YaHei',weight="bold")
+from sklearn.preprocessing import StandardScaler
+
+
+class k_means:
+    
+    k = None
+    cluster = None
+    def __init__(self,k):
+        self.k = k
+        return
+    
+    def classify(self,data):
+        self.random_cluster(data)
+        iterate_number  = 0
+        assignment1 = self.assign(data)
+        J_loss = self.loss_caculate(data)
+        print(f"loss{iterate_number}:{J_loss}\niterate_number{iterate_number}:assignment1{assignment1}")
+        self.renew_cluster(data,assignment1)
+        
+        assignment2 = self.assign(data)
+        iterate_number  = 1
+        while (assignment1 != assignment2).any():
+            assignment1 = assignment2
+            self.renew_cluster(data,assignment1)
+            assignment2 = self.assign(data)
+            J_loss = self.loss_caculate(data)
+            print(f"loss{iterate_number}:{J_loss}\niterate_number:{iterate_number}\nassignment1{assignment1}")
+            iterate_number+=1
+        print("iterate_number:",iterate_number)
+        return assignment1
+    
+    def renew_cluster(self,data,assign):#更新簇的中心坐标
+        self.cluster = []
+        num = np.bincount(assign)
+        data =  data[assign.argsort()]
+        a = 0
+        for i in num:
+            self.cluster.append(np.mean(data[a:a+i,:],axis=0))
+            a += i
+        self.cluster = np.array(self.cluster)
+        return
+
+    def assign(self,data):#将data的数据分配给每一个cluster
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        assignment = np.argmin(distance,axis=0)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return assignment
+
+    
+
+    def loss_caculate(self,data):
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return J_loss
+
+    def random_cluster(self,data):
+        a = list(data)
+        c = len(a)-1
+        b = 0
+        self.cluster = []
+        while b < self.k:
+            ran = random.randint(0,c)
+            self.cluster.append(a.pop(ran))
+            c -= 1
+            b += 1
+        self.cluster = np.array(self.cluster)
+        return
+
+
+    def assignment_optimize(self):
+        return
+    
+    def means_optimize(self):
+        return
+
+
+
+
+# filepath = "C:\\Users\\86136\\Desktop\\杂物\\人工智能与机器学习\\vscode\\final_project_copy\\s1.jpg"
+# filepath = "C:\\Users\\86136\\Desktop\\杂物\\人工智能与机器学习\\vscode\\final_project_copy\\seeds_dataset.txt"
+filepath = '.\\seeds_dataset.txt'
+
+
+data_complete = np.loadtxt(filepath,dtype = float)
+data = data_complete[:,0:-1]
+data = StandardScaler().fit_transform(data)#数据归一化
+
+kmeans = k_means(3)
+# kmeans.random_cluster(data)
+# a = kmeans.assign(data)
+# kmeans.renew_cluster(data,a)
+output = kmeans.classify(data)
+
+print(output)
+
+
+target = data_complete[:,-1]#用于题目三验证
+x = np.arange(1,211)
+plt.subplot(2,1,1)
+plt.scatter(x[0:70],target[0:70],s = 2)
+plt.scatter(x[70:140],target[70:140],s = 2)
+plt.scatter(x[140:210],target[140:210],s = 2)
+plt.title('label(上图)与kmeans聚类结果(下图)')
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.subplot(2,1,2)
+plt.scatter(x[0:70],output[0:70]+1,s = 2)
+plt.scatter(x[70:140],output[70:140]+1,s = 2)
+plt.scatter(x[140:210],output[140:210]+1,s = 2)
+plt.xlabel('样本')
+plt.ylabel('类别')
+plt.show()

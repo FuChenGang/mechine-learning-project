@@ -1,0 +1,141 @@
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib
+import random
+matplotlib.rc("font",family='Microsoft YaHei',weight="bold")
+from sklearn.preprocessing import StandardScaler
+import PIL.Image as im
+#import cv2
+import scipy.linalg as sl#用于计算特征值
+
+#print(a)
+class PCA:
+    # def pca(self,image_array,k):#k个特征值(彩色图片)
+    #     tunnel1 = image_array[:,:,0]
+    #     tunnel2 = image_array[:,:,1]
+    #     tunnel3 = image_array[:,:,2]
+    #     image_array[:,:,0] = self.single_tunnel(tunnel1,k)
+    #     image_array[:,:,1] = self.single_tunnel(tunnel2,k)
+    #     image_array[:,:,2] = self.single_tunnel(tunnel3,k)
+    #     return image_array
+    U = None
+
+    def single_tunnel(self,X,k):#单个原色
+        shape = X.shape
+        height = shape[0]
+        width = shape[1]
+        mean = np.mean(X,axis=0)
+        mean_tile = np.tile(mean,(height,1))
+        X_de_mean = X - mean_tile
+        C = np.zeros((width,width))
+        for i in X_de_mean:
+            #C.append(np.outer(i,i))
+            C += np.outer(i,i)
+        C = C / height
+        eigen_decomposition = sl.eigh(C)#求协方差矩阵特征值及特征向量（利用scipy.linalg）
+        value = eigen_decomposition[0]
+        sort = np.flip(np.argsort(value))
+        vector = eigen_decomposition[1].T
+        vector = vector[sort]
+        U_1_to_M = vector[:k]
+        T_U_1_to_M = U_1_to_M.T
+        self.U = U_1_to_M
+        Z = np.dot(U_1_to_M,X_de_mean.T)
+        Z_T = Z.T
+        X_reconstruct = []#去均值后的经PCA重构的像素矩阵X
+        for i in Z_T:
+            coordinate = np.tile(i,(width,1))
+            X_reconstruct.append(np.sum(coordinate * T_U_1_to_M,axis=1))
+        #X_reconstruct = np.array(X_reconstruct)
+        #print(f'loss:{np.sum(np.square(X_de_mean - X_reconstruct))/(height*width)}')
+
+        #对中心值进行PCA处理:
+        n = mean.dot(T_U_1_to_M)
+        n = np.tile(n,(width,1))
+        mean_reconstruct = np.sum(n*T_U_1_to_M,axis=1)
+        mean_reconstruct = np.tile(mean_reconstruct,(height,1))
+
+        #X_PCA = X_reconstruct + mean_reconstruct
+        X_PCA = X_reconstruct + mean_tile
+        print(f'loss:{np.sum(np.square(X - X_PCA))/(height*width)}')
+
+        return X_PCA
+        #print(shape)
+
+image = im.open('.\\s1.jpg')
+image_array = np.array(image)
+before_pca = image_array.reshape(-1,image_array.shape[-1])
+PCA = PCA()
+after_PCA = PCA.single_tunnel(before_pca,2)
+after_PCA = after_PCA.reshape(image_array.shape[0],image_array.shape[1],image_array.shape[-1])
+print(image_array)
+print(f'shape:{image_array.shape}')
+after_PCA = after_PCA.astype(np.uint8)
+# print(f"原始像素矩阵：{image_array}")
+# print(f"处理后像素矩阵：{after_PCA}")
+print(f'basis of principal components:{PCA.U}')
+image = im.fromarray(after_PCA)
+image.show()
+
+# filepath = "C:\\Users\\86136\\Desktop\\杂物\\人工智能与机器学习\\vscode\\final_project_copy\\s1.jpg"
+# image = cv2.imread('.\\final project\\image.png')
+# print(image)
+
+# cv2.imshow("old_image", image)
+# cv2.imwrite(image)
+
+
+
+
+
+    # def single_tunnel(self,tunnel,k):
+
+    #     X = tunnel
+    #     shape = X.shape
+    #     height = shape[0]
+    #     width = shape[1]
+    #     mean = np.mean(X,axis=0)
+    #     C = np.zeros((height,width,width))
+    #     X_subtract_mean = X - np.tile(mean,(height,1))
+    #     a = 0
+    #     for i in X_subtract_mean:
+    #         #print(i.shape,mean.shape)
+    #         C[a] = np.outer(i,i)
+    #         #print(C[a])
+    #         # print(np.linalg.eig(C[a])[0])
+    #         a += 1
+
+            
+    #     C = np.mean(C,axis=0)#求得协方差矩阵
+    #     print(C)
+    #     eigen_decomposition = sl.eigh(C)
+        
+
+    #     value = eigen_decomposition[0]
+        
+    #     vector = eigen_decomposition[1].T
+    #     sort = np.argsort(value)
+    #     sort = np.flip(sort)
+    #     vector = vector[:,sort]
+    #     U = np.zeros(vector.shape)
+        
+    #     # U = vector[-k:]
+    #     U = vector[:k]
+    #     U_T = U.T
+    #     Z = np.dot(X,U_T)
+    #     X_reconstruct = X.copy()
+    #     k = 0
+    #     for i in Z:
+    #         a = np.tile(i,(width,1))
+    #         #X_k = np.sum(a * U_T,axis=1)
+    #         #print(a.shape,U_T.shape)
+    #         X_reconstruct[k] = np.sum(a * U_T,axis=1)
+    #         k += 1
+    #     print(np.sum(np.abs(X_subtract_mean-X_reconstruct)))
+
+
+
+#print(mean)
+#a[:, :, 0] = 0
+

@@ -1,0 +1,116 @@
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib
+import random
+matplotlib.rc("font",family='Microsoft YaHei',weight="bold")
+from sklearn.preprocessing import StandardScaler
+import PIL.Image as im
+
+class LinearAutoEncoder:
+    encode_matrix = None
+    decode_matrix = None
+    mean = None
+    def encode(self,x):
+        x = self.data_proccessed_x(x)
+        return np.dot(x,self.encode_matrix)
+    def decode(self,y):
+        return np.dot(y,self.decode_matrix)
+    def train(self,x,k,train_number = 100,learning_rate = 0.01):
+        mean = np.mean(x,axis=0)
+        self.mean = np.tile(mean,(x.shape[0],1))
+        self.train_without_mean(x,k,train_number,learning_rate)
+
+    def train_without_mean(self,x,k,train_number = 100,learning_rate = 0.01):#(单色图片或彩色图片单原色训练)#降成k维
+        
+        print(type(x))
+        shape = x.shape
+        height = shape[0]
+        width = shape[1]
+        
+        self.encode_matrix = np.random.randn(width+1,k)/height
+        self.decode_matrix = np.random.randn(k,width)/height
+        for i in range(train_number):
+            y = self.encode(x)
+            
+            x_ = self.decode(y)
+            if i % 100 == 0:
+                print(f'loss{i}:{ np.mean(np.square(x - x_))}')
+            loss_gra_x_ = x_ - x
+            loss_gra_decode = np.dot(y.T,loss_gra_x_)
+            loss_gra_y = np.dot(loss_gra_x_,self.decode_matrix.T)
+            loss_gra_encode = np.dot(self.data_proccessed_x(x).T,loss_gra_y)
+            #设置更新阈值：
+            m = 0.0001
+            n = -1/4900
+            loss_gra_encode = np.where(loss_gra_encode > m / learning_rate,m / learning_rate,loss_gra_encode)
+            loss_gra_encode = np.where(loss_gra_encode < n / learning_rate,n / learning_rate,loss_gra_encode)
+            loss_gra_decode = np.where(loss_gra_decode < n / learning_rate,n / learning_rate,loss_gra_decode)
+            loss_gra_decode = np.where(loss_gra_decode > m / learning_rate,m / learning_rate,loss_gra_decode)
+            #更新学习参数：
+            c = 10/np.log2(i+2)#训练次数增大，更新幅度变小
+            learning_rate1 = learning_rate * c   #训练次数增大，更新幅度变小
+            self.encode_matrix -= loss_gra_encode * learning_rate1
+            self.decode_matrix -= loss_gra_decode * learning_rate1
+    def X_reconstruct(self,x):
+        return self.decode(self.encode(x))
+        #x_without_mean = x - self.mean
+        #return self.decode(self.encode(x_without_mean)) + self.mean
+    def gradient(self,x):
+        y = self.encode(x)
+        x_ = self.decode(y)
+        return np.mean(np.square(x - x_))
+    def loss(self,x):
+        y = self.encode(x)
+        x_ = self.decode(y)
+        return np.mean(np.square(x - x_))
+    def data_proccessed_x(self,x):
+    #将矩阵x拓展一列用来乘偏置项w0并返回处理后的矩阵
+        a = x.shape
+        x_proccessed = np.ones([a[0],a[1]+1])
+        x_proccessed[:,1:] = x
+        return x_proccessed
+
+
+
+image = im.open('.\\s1.jpg')
+image_array = np.array(image)
+# image_array = image_array[600:700,600:700]
+# image = im.fromarray(image_array)
+# image.show()
+before_encoder = image_array.reshape(-1,image_array.shape[-1])
+LinearAutoEncoder = LinearAutoEncoder()
+LinearAutoEncoder.train_without_mean(before_encoder,3,10000,0.00001)
+after_encoder = LinearAutoEncoder.X_reconstruct(before_encoder)
+max = np.max(after_encoder)
+min = np.min(after_encoder)
+print(f'before_encoder:{before_encoder}\nafter_encoder:{after_encoder}')
+after_encoder = np.where(after_encoder  <  0,0,after_encoder)
+after_encoder = np.where(after_encoder  >  255,255,after_encoder)
+after_encoder = after_encoder.reshape(image_array.shape[0],image_array.shape[1],image_array.shape[-1])
+after_encoder = after_encoder.astype(np.uint8)#转成能显示的数值放入
+print(f"原始像素矩阵：{image_array}")
+print(f"处理后像素矩阵：{after_encoder}")
+print(f'basis of principal components(include bias) :{LinearAutoEncoder.encode_matrix}')
+image = im.fromarray(after_encoder)
+image.show()
+    
+
+
+
+
+
+# LinearAutoEncoder = LinearAutoEncoder()
+# a = np.array([4,6,8,0,9,29])
+# c = np.random.random_integers(0,255,(100,100))
+
+# LinearAutoEncoder.train_without_mean(c,100,40000,0.000000003)
+# print(f'c:{c}\nLinearAutoEncoder.X_reconstruct(c):{LinearAutoEncoder.X_reconstruct(c)}')
+# reconstruct = np.zeros((100,100,3))
+# for i in range(3):
+#     reconstruct[:,:,i] = LinearAutoEncoder.X_reconstruct(c)
+# reconstruct = np.array(reconstruct)
+# reconstruct = reconstruct.astype(np.uint8)#转成能显示的数值放入
+# print(reconstruct)
+# image = im.fromarray(reconstruct)
+# image.show()

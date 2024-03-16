@@ -1,0 +1,146 @@
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib
+import random
+matplotlib.rc("font",family='Microsoft YaHei',weight="bold")
+from sklearn.preprocessing import StandardScaler
+import PIL.Image as im
+
+class softkmeans:
+    train_number = 100
+    cluster = []
+    k = None
+    cluster = None
+    def __init__(self,k,train_number):
+        self.k = k
+        self.train_number = train_number
+        return
+    
+    def classify(self,data):
+        self.random_cluster(data)
+        iterate_number  = 0
+        print(f'self.cluster:{self.cluster}')
+        assignment1 = self.assign(data)
+        J_loss = self.loss_caculate(data)
+
+        print(f"loss{iterate_number}:{J_loss}\niterate_number{iterate_number}:assignment1{assignment1}")
+        self.renew_cluster(data,assignment1)
+        
+        assignment2 = self.assign(data)
+        iterate_number  = 1
+        while (assignment1 != assignment2).any() and iterate_number < self.train_number:
+        
+
+            assignment1 = assignment2
+            self.renew_cluster(data,assignment1)
+            assignment2 = self.assign(data)
+            J_loss = self.loss_caculate(data)
+            print(f"loss{iterate_number}:{J_loss}\niterate_number:{iterate_number}\ncluster:{self.cluster}")
+            iterate_number+=1
+        print(f"iterate_number:,iterate_number")
+
+        return self.assign_old(data)
+    
+    def renew_cluster(self,data,assign):#更新簇的中心坐标
+        self.cluster = []
+        
+        # data =  data[assign.argsort()]
+        a = 0
+        for i in assign:
+            r = np.sum(i)
+            i = np.array([i])
+            self.cluster.append(np.sum( data *i.T ,axis=0)/r)
+            
+        self.cluster = np.array(self.cluster)
+        
+        return
+
+    def assign(self,data):#将data的数据分配给每一个cluster
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        #print(f"\n\ndistance:{distance}")
+        minus_log = np.exp(-distance)
+        #print(f"\n\nexp:{distance}")
+        soft_weight = np.sum(minus_log,axis=0)
+        soft_weight = np.tile(soft_weight,(self.k,1))
+        weight = minus_log / soft_weight
+        #print(f"\n\nweight:{weight}\nminus_log:{minus_log}\nsoft_weight:{soft_weight}")
+        assignment = np.argmin(distance,axis=0)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return weight
+
+    def assign_old(self,data):#将data的数据分配给每一个cluster
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        assignment = np.argmin(distance,axis=0)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return assignment
+
+    def loss_caculate(self,data):
+        length = len(data)
+        distance = []
+        for i in self.cluster:
+            clu = np.tile(i,(length,1))
+            dis = np.sum((clu - data)**2,axis = 1)
+            distance.append(dis)
+        distance = np.array(distance)
+        J_loss = np.sum(np.min(distance,axis=0))/length
+        return J_loss
+
+    def random_cluster(self,data):
+        a = list(data)
+        c = len(a)-1
+        b = 0
+        self.cluster = []
+        while b < self.k:
+            ran = random.randint(0,c)
+            self.cluster.append(a.pop(ran))
+            c -= 1
+            b += 1
+        self.cluster = np.array(self.cluster)
+        return
+
+
+#soft_k_means = task_2_softkMeans.soft_k_means(2)
+
+soft_k_means = softkmeans(1,100)
+
+image = im.open('.\\s1.jpg')
+
+image_array = np.array(image)
+
+print(image_array)
+print(np.max(image_array)-np.min(image_array))
+
+max = np.max(image_array)
+min = np.min(image_array)
+times = 1   #max - min
+image_array = image_array / times
+before_kmeans = image_array.reshape(-1,image_array.shape[-1])
+#before_kmeans = StandardScaler().fit_transform(before_kmeans)#数据归一化
+assign = soft_k_means.classify(before_kmeans)
+
+
+
+after_kmeans = np.array(soft_k_means.cluster[assign]) * times
+
+after_kmeans = after_kmeans.reshape(image_array.shape[0],image_array.shape[1],image_array.shape[-1]) 
+
+
+after_kmeans = after_kmeans.astype(np.uint8)
+print(f"原始像素矩阵：{image_array}")
+print(f"处理后像素矩阵：{after_kmeans}")
+image = im.fromarray(after_kmeans) 
+
+image.show()
